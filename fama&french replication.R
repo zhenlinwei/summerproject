@@ -63,9 +63,16 @@ library(readxl)
 financial_data = as.data.table(read_excel("financialdata excel.xlsx"))
 market_data = as.data.table(read_excel("marketdata excel.xlsx"))
 
-financial_data[, Date := as.Date(annDate)]
+financial_data[, annDate := as.Date(annDate)]
 market_data[, Date := as.Date(Date)]
 
+# treat quarterly reports and annual reports of a company announced on the same date 
+financial_data = financial_data[, rankFdate := rank(-as.numeric(fdate)), by = .(id, annDate)][rankFdate == 1]
+# merge financial and market data
+financial_data[, Date := annDate]
 merged_data = financial_data[market_data, on = .(id, Date), roll = Inf]
+
 # date check
-merged_data[as.Date(annDate) > Date] # if it returns any row, then something is wrong
+merged_data[annDate > Date] # if it returns any row, then something is wrong
+# number of entries per date check
+merged_data[,.N, by = .(id, Date)][N>1] # if it returns any row, then something is wrong
