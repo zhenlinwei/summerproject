@@ -54,3 +54,18 @@ for (i in 1:nrow(market_data)) {
 }
 
 print(merged_data)
+
+#3
+library(data.table)
+library(lubridate)
+library(readxl)
+
+financial_data = as.data.table(read_excel("financialdata excel.xlsx"))
+market_data = as.data.table(read_excel("marketdata excel.xlsx"))
+
+financial_data[, Date := as.Date(annDate)]
+market_data[, Date := as.Date(Date)]
+
+merged_data = financial_data[market_data, on = .(id, Date), roll = Inf]
+# date check
+merged_data[as.Date(annDate) > Date] # if it returns any row, then something is wrong
