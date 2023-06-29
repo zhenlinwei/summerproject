@@ -76,3 +76,9 @@ merged_data = financial_data[market_data, on = .(id, Date), roll = Inf]
 merged_data[annDate > Date] # if it returns any row, then something is wrong
 # number of entries per date check
 merged_data[,.N, by = .(id, Date)][N>1] # if it returns any row, then something is wrong
+
+#Calculate the sum of meTotal on 6-30 of each year
+market_data$Year = format(market_data$Date, "%Y")
+market_data$Month = format(market_data$Date, "%m")
+june30_market_data = market_data[market_data$Month == "06" & market_data$Date == as.Date(paste0(market_data$Year, "-06-30")), ]
+sum_meTotal = sum(june30_market_data$meTotal,na.rm = TRUE)
