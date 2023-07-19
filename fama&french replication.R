@@ -90,3 +90,30 @@ setorder(portfolio_return, "Date")
 ff3 = as.data.table(read.csv("FF3 replicated.csv"))
 mktCheck = merge(ff3[,.(Date = ymd(Date), MKT)], portfolio_return, by = "Date", all.x = T)
 cor(mktCheck$MKT.x, mktCheck$MKT.y)
+
+#Classifying size and value into 6 categories.
+#Column "size": 0 = small, 1 = big
+#Column :value": 0 = growth, 1 = neutral, 2 = value
+merged_data[,.(Date, id, ret, meTotal, book)]
+june_data = merged_data[month(Date) == 6]
+june_data[, ":="(wt = meTotal/sum(meTotal, na.rm = TRUE)), by = Date]
+june_data[,.(Date, id, ret, meTotal, book, wt)]
+                   
+percentile_50 = quantile(june_data$meTotal, probs = 0.5, na.rm = TRUE)
+june_data = june_data %>%
+  mutate(size = ifelse(meTotal <= percentile_50, "0", "1"))
+
+june_data = june_data %>%
+  mutate(value = book / meTotal)
+
+percentile_30 = quantile(june_data$value, probs = 0.3, na.rm = TRUE)
+percentile_70 = quantile(june_data$value, probs = 0.7, na.rm = TRUE)
+
+june_data = june_data %>%
+  mutate(value = case_when(
+    value <= percentile_30 ~ "0",
+    value > percentile_30 & value <= percentile_70 ~ "1",
+    TRUE ~ "2"
+  ))
+
+                   
