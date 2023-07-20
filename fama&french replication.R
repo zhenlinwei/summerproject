@@ -98,22 +98,18 @@ merged_data[,.(Date, id, ret, meTotal, book)]
 june_data = merged_data[month(Date) == 6]
 june_data[, ":="(wt = meTotal/sum(meTotal, na.rm = TRUE)), by = Date]
 june_data[,.(Date, id, ret, meTotal, book, wt)]
-                   
-percentile_50 = quantile(june_data$meTotal, probs = 0.5, na.rm = TRUE)
-june_data = june_data %>%
-  mutate(size = ifelse(meTotal <= percentile_50, "0", "1"))
 
 june_data = june_data %>%
-  mutate(value = book / meTotal)
-
-percentile_30 = quantile(june_data$value, probs = 0.3, na.rm = TRUE)
-percentile_70 = quantile(june_data$value, probs = 0.7, na.rm = TRUE)
+  mutate(size_percentile = percent_rank(meTotal))
+june_data = june_data %>%
+  mutate(beme = book / meTotal)
+june_data = june_data %>%
+  mutate(value_percentile = percent_rank(beme))
 
 june_data = june_data %>%
-  mutate(value = case_when(
-    value <= percentile_30 ~ "0",
-    value > percentile_30 & value <= percentile_70 ~ "1",
-    TRUE ~ "2"
-  ))
-
+  mutate(size = ifelse(size_percentile <= 0.5, "0", "1"))
+june_data = june_data %>%
+  mutate(value = ifelse(is.na(value_percentile), NA, 
+    ifelse(value_percentile <= 0.3, "0",
+    ifelse(value_percentile > 0.3 & value_percentile <= 0.7, "1", "2"))))
                    
