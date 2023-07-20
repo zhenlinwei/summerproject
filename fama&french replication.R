@@ -100,12 +100,22 @@ june_data[, ":="(wt = meTotal/sum(meTotal, na.rm = TRUE)), by = Date]
 june_data[,.(Date, id, ret, meTotal, book, wt)]
 
 june_data = june_data %>%
+  group_by(Date) %>%
   mutate(size_percentile = percent_rank(meTotal))
+
 june_data = june_data %>%
   mutate(beme = book / meTotal)
+
 june_data = june_data %>%
+  group_by(Date) %>%
   mutate(value_percentile = percent_rank(beme))
 
+june_data = june_data %>%
+  mutate(size = ifelse(size_percentile <= 0.5, "0", "1"))
+june_data = june_data %>%
+  mutate(value = ifelse(is.na(value_percentile), NA, 
+    ifelse(value_percentile <= 0.3, "0",
+    ifelse(value_percentile > 0.3 & value_percentile <= 0.7, "1", "2"))))
 june_data = june_data %>%
   mutate(size = ifelse(size_percentile <= 0.5, "0", "1"))
 june_data = june_data %>%
