@@ -99,6 +99,9 @@ june_data = merged_data[month(Date) == 6]
 june_data[, ":="(wt = meTotal/sum(meTotal, na.rm = TRUE)), by = Date]
 june_data[,.(Date, id, ret, meTotal, book, wt)]
 
+setDT(june_data)
+setorder(june_data, id, Date)
+june_data[, c("book", "ret", "meTotal") := lapply(.SD, na.locf, na.rm = FALSE), by = id]                   
 june_data = june_data %>%
   group_by(Date) %>%
   mutate(size_percentile = percent_rank(meTotal))
