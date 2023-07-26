@@ -125,4 +125,75 @@ june_data = june_data %>%
   mutate(value = ifelse(is.na(value_percentile), NA, 
     ifelse(value_percentile <= 0.3, "0",
     ifelse(value_percentile > 0.3 & value_percentile <= 0.7, "1", "2"))))
-                   
+
+
+
+# merged_data size and value
+merged_data = merged_data %>%
+  group_by(Date) %>%
+  mutate(size_percentile = percent_rank(meTotal))
+
+merged_data = merged_data %>%
+  mutate(beme = book / meTotal)
+
+merged_data = merged_data %>%
+  group_by(Date) %>%
+  mutate(value_percentile = percent_rank(beme))
+
+merged_data = merged_data %>%
+  mutate(size = ifelse(size_percentile <= 0.5, "0", "1"))
+merged_data = merged_data %>%
+  mutate(value = ifelse(is.na(value_percentile), NA, 
+    ifelse(value_percentile <= 0.3, "0",
+    ifelse(value_percentile > 0.3 & value_percentile <= 0.7, "1", "2"))))
+
+#Creating 6 portfolios
+small_growth = subset(merged_data, size == "0" & value == "0")
+small_neutral = subset(merged_data, size == "0" & value == "1")
+small_value = subset(merged_data, size == "0" & value == "2")
+large_growth = subset(merged_data, size == "1" & value == "0")
+large_neutral = subset(merged_data, size == "1" & value == "1")
+large_value = subset(merged_data, size == "1" & value == "2")
+
+#Price drifting and portfolio return
+#Small_growth
+small_growth = setDT(small_growth)
+new_small_growth = rebalance(small_growth, 7)
+new_small_growth_filtered = new_small_growth[complete.cases(new_small_growth$wt),]
+small_growth_portfolio_return = new_small_growth_filtered[,.(MKT = weighted.mean(ret, wt)), by = Date]
+setorder(small_growth_portfolio_return, "Date")
+
+#Small_neutral
+small_neutral = setDT(small_neutral)
+new_small_neutral = rebalance(small_neutral, 7)
+new_small_neutral_filtered = new_small_neutral[complete.cases(new_small_neutral$wt),]
+small_neutral_portfolio_return = new_small_neutral_filtered[,.(MKT = weighted.mean(ret, wt)), by = Date]
+setorder(small_neutral_portfolio_return, "Date")
+
+#Small_value
+small_value = setDT(small_value)
+new_small_value = rebalance(small_value, 7)
+new_small_value_filtered = new_small_value[complete.cases(new_small_value$wt),]
+small_value_portfolio_return = new_small_value_filtered[,.(MKT = weighted.mean(ret, wt)), by = Date]
+setorder(small_value_portfolio_return, "Date")
+
+#Large_growth
+large_growth = setDT(large_growth)
+new_large_growth = rebalance(large_growth, 7)
+new_large_growth_filtered = new_large_growth[complete.cases(new_large_growth$wt),]
+large_growth_portfolio_return = new_large_growth_filtered[,.(MKT = weighted.mean(ret, wt)), by = Date]
+setorder(large_growth_portfolio_return, "Date")
+
+#Large_neutral
+large_neutral = setDT(large_neutral)
+new_large_neutral = rebalance(large_neutral, 7)
+new_large_neutral_filtered = new_large_neutral[complete.cases(new_large_neutral$wt),]
+large_neutral_portfolio_return = new_large_neutral_filtered[,.(MKT = weighted.mean(ret, wt)), by = Date]
+setorder(large_neutral_portfolio_return, "Date")
+
+#Large_value
+large_value = setDT(large_value)
+new_large_value = rebalance(large_value, 7)
+new_large_value_filtered = new_large_value[complete.cases(new_large_value$wt),]
+large_value_portfolio_return = new_large_value_filtered[,.(MKT = weighted.mean(ret, wt)), by = Date]
+setorder(large_value_portfolio_return, "Date")
