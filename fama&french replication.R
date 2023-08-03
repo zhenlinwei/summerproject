@@ -201,3 +201,31 @@ new_large_value = rebalance(large_value, 7)
 new_large_value_filtered = new_large_value[complete.cases(new_large_value$wt),]
 large_value_portfolio_return = new_large_value_filtered[,.(lvRet = weighted.mean(ret, wt)), by = Date]
 setorder(large_value_portfolio_return, "Date")
+
+#Merging portfolio returns 
+data_tables = list(small_growth_portfolio_return, 
+                   small_neutral_portfolio_return,
+                   small_value_portfolio_return,
+                   large_growth_portfolio_return, 
+                   large_neutral_portfolio_return,
+                   large_value_portfolio_return)
+lapply(data_tables, setkey, "Date")
+merged_portfolio = small_growth_portfolio_return[
+    small_neutral_portfolio_return][
+    small_value_portfolio_return][
+    large_growth_portfolio_return][
+    large_neutral_portfolio_return][large_value_portfolio_return]
+
+#Calculating SMB and HML
+merged_portfolio[, small_portfolio_return := (sgRet+snRet+svRet)/3]
+merged_portfolio[, large_portfolio_return := (lgRet+lnRet+lvRet)/3]
+merged_portfolio[, SMB := small_portfolio_return - large_portfolio_return]
+
+merged_portfolio[, high_portfolio_return := (svRet+lvRet)/2]
+merged_portfolio[, low_portfolio_return := (sgRet+lgRet)/2]
+merged_portfolio[, HML := high_portfolio_return - low_portfolio_return]
+
+#The final result
+setkey(merged_portfolio, Date)
+setkey(portfolio_return, Date)
+FF3_Replicated = portfolio_return[merged_portfolio, .(Date, MKT, SMB, HML)]                   
