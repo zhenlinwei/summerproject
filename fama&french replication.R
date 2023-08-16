@@ -129,20 +129,34 @@ june_data = june_data %>%
 
 
 # merged_data size and value
-# merged_data size and value
 merged_data = merged_data %>%
-  group_by(Year = year(Date)) %>%
-  mutate(
-    beme = if_else(month(Date) == 6, book / meTotal, lag(book / meTotal, 1)),
-    meTotal = if_else(month(Date) == 6, meTotal, lag(meTotal, 1))
-  ) %>%
-  fill(beme, meTotal, .direction = "down") %>%
-  ungroup() %>%
-  group_by(Date) %>%
-  mutate(
-    size_percentile = percent_rank(meTotal),
-    value_percentile = percent_rank(beme)
-  )
+  mutate(Year = if_else(month(Date) < 6, year(Date) - 1, year(Date))) %>%
+  group_by(id, Year) %>%
+  mutate(June_meTotal = if_else(month(Date) == 6, meTotal, NA_real_)) %>%
+  tidyr::fill(June_meTotal, .direction = "downup") %>%
+  mutate(same_meTotal = if_else(is.na(June_meTotal), meTotal, June_meTotal)) %>%
+  ungroup()
+
+merged_data = merged_data %>%
+  group_by(Year) %>%
+  mutate(size_percentile = percent_rank(same_meTotal)) %>%
+  ungroup()
+
+merged_data = merged_data %>%
+  mutate(Year = if_else(month(Date) < 6, year(Date) - 1, year(Date))) %>%
+  group_by(id, Year) %>%
+  mutate(June_book = if_else(month(Date) == 6, book, NA_real_)) %>%
+  tidyr::fill(June_book, .direction = "downup") %>%
+  mutate(same_book = if_else(is.na(June_book), book, June_book)) %>%
+  ungroup()
+
+merged_data = merged_data %>%
+  mutate(beme = same_book / same_meTotal)
+
+merged_data = merged_data %>%
+  group_by(Year) %>%
+  mutate(value_percentile = percent_rank(beme)) %>%
+  ungroup()
 
 merged_data = merged_data %>%
   mutate(size = ifelse(size_percentile <= 0.5, "0", "1"))
@@ -228,4 +242,4 @@ merged_portfolio[, HML := high_portfolio_return - low_portfolio_return]
 #The final result
 setkey(merged_portfolio, Date)
 setkey(portfolio_return, Date)
-FF3_Replicated = portfolio_return[merged_portfolio, .(Date, MKT, SMB, HML)]                   
+FF3_Re = portfolio_return[merged_portfolio, .(Date, MKT, SMB, HML)]                   
