@@ -143,19 +143,18 @@ merged_data = merged_data %>%
   ungroup()
 
 merged_data = merged_data %>%
+  mutate(beme = book / meTotal)
+
+merged_data = merged_data %>%
   mutate(Year = if_else(month(Date) < 6, year(Date) - 1, year(Date))) %>%
   group_by(id, Year) %>%
-  mutate(June_book = if_else(month(Date) == 6, book, NA_real_)) %>%
-  tidyr::fill(June_book, .direction = "downup") %>%
-  mutate(same_book = if_else(is.na(June_book), book, June_book)) %>%
+  mutate(June_beme = if_else(month(Date) == 6, beme, NA_real_)) %>%
+  tidyr::fill(June_beme, .direction = "downup") %>%
+  mutate(adjusted_beme = if_else(is.na(June_beme), beme, June_beme)) %>%
   ungroup()
-
-merged_data = merged_data %>%
-  mutate(beme = same_book / same_meTotal)
-
 merged_data = merged_data %>%
   group_by(Year) %>%
-  mutate(value_percentile = percent_rank(beme)) %>%
+  mutate(value_percentile = percent_rank(adjusted_beme)) %>%
   ungroup()
 
 merged_data = merged_data %>%
