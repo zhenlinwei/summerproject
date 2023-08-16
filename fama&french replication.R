@@ -130,16 +130,17 @@ june_data = june_data %>%
 
 # merged_data size and value
 merged_data = merged_data %>%
-  mutate(Year = if_else(month(Date) < 6, year(Date) - 1, year(Date))) %>%
+  mutate(Year = if_else(month(Date) < 6, year(Date) - 1, year(Date)))
+
+merged_data <- merged_data %>%
   group_by(id, Year) %>%
   mutate(June_meTotal = if_else(month(Date) == 6, meTotal, NA_real_)) %>%
   tidyr::fill(June_meTotal, .direction = "downup") %>%
-  mutate(same_meTotal = if_else(is.na(June_meTotal), meTotal, June_meTotal)) %>%
   ungroup()
 
 merged_data = merged_data %>%
-  group_by(Year) %>%
-  mutate(size_percentile = percent_rank(same_meTotal)) %>%
+  group_by(Date) %>%
+  mutate(size_percentile = percent_rank(June_meTotal)) %>%
   ungroup()
 
 merged_data = merged_data %>%
@@ -150,11 +151,10 @@ merged_data = merged_data %>%
   group_by(id, Year) %>%
   mutate(June_beme = if_else(month(Date) == 6, beme, NA_real_)) %>%
   tidyr::fill(June_beme, .direction = "downup") %>%
-  mutate(adjusted_beme = if_else(is.na(June_beme), beme, June_beme)) %>%
   ungroup()
 merged_data = merged_data %>%
-  group_by(Year) %>%
-  mutate(value_percentile = percent_rank(adjusted_beme)) %>%
+  group_by(Date) %>%
+  mutate(value_percentile = percent_rank(June_beme)) %>%
   ungroup()
 
 merged_data = merged_data %>%
