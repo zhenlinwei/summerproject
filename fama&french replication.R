@@ -298,7 +298,7 @@ UPR_data = UPR_data %>%
   mutate(UPR = DBAA - LGB)
 
 TRB_data = as.data.table(read_excel("4-week TB rate.xls"))
-UTS_data = merge(lgb, TRB_data, by = Date)
+UTS_data = merge(lgb, TRB_data, by = "observation_date")
 UTS_data = UTS_data %>%
   mutate(UTS = LGB - lag(DTB4WK, 1))
 
@@ -308,7 +308,43 @@ oil_price = as.data.table(read_excel("Petroleum Price Index.xls"))
 start_date = as.Date("1986-08-01")
 end_date = as.Date("2023-06-01")
 Industrial_production_f = Industrial_production[observation_date >= start_date & observation_date <= end_date]
-FF3_Re$Date = as.yearmon(FF3_Re$Date)
+FF3_2 = FF3_Re
+FF3_Re_2$Date = as.yearmon(FF3_Re_2$Date)
 Industrial_production_f$observation_date = as.yearmon(Industrial_production_f$observation_date)
-merged_MP = merge(FF3_Re, Industrial_production_f, by.x = "Date", by.y = "observation_date")
-lmmodel = lm(MKT ~ MP, data = merged_MP)
+merged_MP = merge(FF3_Re_2, Industrial_production_f, by.x = "Date", by.y = "observation_date")
+lm1 = lm(MKT ~ MP, data = merged_MP)
+lm2 = lm(SMB ~ MP, data = merged_MP)
+lm3 = lm(HML ~ MP, data = merged_MP)
+
+start_date_2 = as.Date("1986-07-31")
+end_date_2 = as.Date("2019-05-31")
+FF3_3= FF3_Re
+FF3_3_f = FF3_3[Date >= start_date_2 & Date <= end_date_2]
+FF3_3_f$Date = as.yearmon(FF3_3_f$Date)
+CPI_data$observation_date = as.yearmon(CPI_data$observation_date)
+merged_CPI = merge(FF3_3_f, CPI_data, by.x = "Date", by.y = "observation_date")
+lm4 = lm(MKT ~ UI, data = merged_CPI)
+lm5 = lm(SMB ~ UI, data = merged_CPI)
+lm6 = lm(HML ~ UI, data = merged_CPI)
+
+end_date_3 = as.Date("2013-03-31")
+FF3_4= FF3_Re
+FF3_4_f = FF3_4[Date >= start_date_2 & Date <= end_date_3]
+FF3_4_f$Date = as.yearmon(FF3_4_f$Date)
+UPR_data$observation_date = as.yearmon(UPR_data$observation_date)
+merged_UPR = merge(FF3_4_f, UPR_data, by.x = "Date", by.y = "observation_date")
+lm7 = lm(MKT ~ UPR, data = merged_UPR)
+lm8 = lm(SMB ~ UPR, data = merged_UPR)
+lm9 = lm(HML ~ UPR, data = merged_UPR)
+
+start_date_3 = as.Date("2018-09-30")
+end_date_4 = as.Date("2022-02-28")
+FF3_5= FF3_Re
+FF3_5_f = FF3_5[Date >= start_date_3 & Date <= end_date_4]
+FF3_5_f$Date = as.yearmon(FF3_5_f$Date)
+UTS_data$observation_date = as.yearmon(UTS_data$observation_date)
+merged_UTS = merge(FF3_5_f, UTS_data, by.x = "Date", by.y = "observation_date")
+lm10 = lm(MKT ~ UTS, data = merged_UTS)
+lm11 = lm(SMB ~ UTS, data = merged_UTS)
+lm12 = lm(HML ~ UTS, data = merged_UTS)
+
