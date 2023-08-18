@@ -276,3 +276,39 @@ merged_data$size_percentile = na.locf(merged_data$size_percentile, na.rm = FALSE
 merged_data$value_percentile = na.locf(merged_data$size_percentile, na.rm = FALSE)
 merged_data$size_percentile = na.locf(merged_data$size_percentile, fromLast = TRUE)
 merged_data$value_percentile = na.locf(merged_data$size_percentile, fromLast = TRUE)
+
+Industrial_production = as.data.table(read_excel("Industrial Production.xls"))
+Industrial_production[, observation_date := as.Date(observation_date)]
+Industrial_production = Industrial_production %>%
+  mutate(MP = log(INDPRO) - log(lag(INDPRO, 1)))
+
+Inflation = as.data.table(read_excel("CPI.xls"))
+Inflation[, observation_date := as.Date(observation_date)]
+Expected_Inflation = as.data.table(read_excel("1Year Expected Inflation.xls"))
+Expected_Inflation[, observation_date := as.Date(observation_date)]
+CPI_data = merge(Inflation, Expected_Inflation, by = "observation_date")
+CPI_data = CPI_data %>%
+  filter(CPI > 0) %>%
+  mutate(UI = log(CPI) - lag(EI, 1))
+
+baa_return = as.data.table(read_excel("BAA Return.xls"))
+lgb = as.data.table(read_excel("Long-term government bond return.xls"))
+UPR_data = merge(baa_return, lgb, by = "observation_date")
+UPR_data = UPR_data %>%
+  mutate(UPR = DBAA - LGB)
+
+TRB_data = as.data.table(read_excel("4-week TB rate.xls"))
+UTS_data = merge(lgb, TRB_data, by = Date)
+UTS_data = UTS_data %>%
+  mutate(UTS = LGB - lag(DTB4WK, 1))
+
+consumption = as.data.table(read_excel("Consumption per capita.xls"))
+oil_price = as.data.table(read_excel("Petroleum Price Index.xls"))
+
+start_date = as.Date("1986-08-01")
+end_date = as.Date("2023-06-01")
+Industrial_production_f = Industrial_production[observation_date >= start_date & observation_date <= end_date]
+FF3_Re$Date = as.yearmon(FF3_Re$Date)
+Industrial_production_f$observation_date = as.yearmon(Industrial_production_f$observation_date)
+merged_MP = merge(FF3_Re, Industrial_production_f, by.x = "Date", by.y = "observation_date")
+lmmodel = lm(MKT ~ MP, data = merged_MP)
