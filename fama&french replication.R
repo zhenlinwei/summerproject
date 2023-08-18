@@ -129,14 +129,17 @@ june_data = june_data %>%
 
 
 # merged_data size and value
+#merged_data size and value
 merged_data = merged_data %>%
   mutate(Year = if_else(month(Date) < 6, year(Date) - 1, year(Date)))
 
-merged_data <- merged_data %>%
+merged_data = merged_data %>%
   group_by(id, Year) %>%
   mutate(June_meTotal = if_else(month(Date) == 6, meTotal, NA_real_)) %>%
   tidyr::fill(June_meTotal, .direction = "downup") %>%
   ungroup()
+
+merged_data$June_meTotal = na.locf(merged_data$June_meTotal, fromLast = T)
 
 merged_data = merged_data %>%
   group_by(Date) %>%
@@ -145,6 +148,8 @@ merged_data = merged_data %>%
 
 merged_data = merged_data %>%
   mutate(beme = book / meTotal)
+merged_data$beme = na.locf(merged_data$beme, fromLast = T)
+
 
 merged_data = merged_data %>%
   mutate(Year = if_else(month(Date) < 6, year(Date) - 1, year(Date))) %>%
@@ -152,10 +157,14 @@ merged_data = merged_data %>%
   mutate(June_beme = if_else(month(Date) == 6, beme, NA_real_)) %>%
   tidyr::fill(June_beme, .direction = "downup") %>%
   ungroup()
+merged_data$June_beme = na.locf(merged_data$June_beme, fromLast = T)
+
 merged_data = merged_data %>%
   group_by(Date) %>%
   mutate(value_percentile = percent_rank(June_beme)) %>%
   ungroup()
+
+
 
 merged_data = merged_data %>%
   mutate(size = ifelse(size_percentile <= 0.5, "0", "1"))
@@ -242,3 +251,28 @@ merged_portfolio[, HML := high_portfolio_return - low_portfolio_return]
 setkey(merged_portfolio, Date)
 setkey(portfolio_return, Date)
 FF3_Re = portfolio_return[merged_portfolio, .(Date, MKT, SMB, HML)]                   
+
+#merged_data size and value
+june_data = merged_data[month(Date) == 6]
+june_data[,.(Date, id, ret, meTotal, book, wt)]
+
+june_data$meTotal = na.locf(june_data$meTotal)
+june_data$book = na.locf(june_data$book, fromLast = TRUE)
+june_data = june_data %>%
+  group_by(Date) %>%
+  mutate(size_percentile = percent_rank(meTotal)) %>%
+  ungroup()
+june_data$beme = june_data$book/june_data$meTotal
+june_data = june_data %>%
+  group_by(Date) %>%
+  mutate(value_percentile = percent_rank(beme)) %>%
+  ungroup()
+
+merged_data = merge(merged_data, june_data[, c("id", "Date", "size_percentile", "value_percentile")], 
+                     by = c("id", "Date"), 
+                     all.x = TRUE)
+
+merged_data$size_percentile = na.locf(merged_data$size_percentile, na.rm = FALSE)
+merged_data$value_percentile = na.locf(merged_data$size_percentile, na.rm = FALSE)
+merged_data$size_percentile = na.locf(merged_data$size_percentile, fromLast = TRUE)
+merged_data$value_percentile = na.locf(merged_data$size_percentile, fromLast = TRUE)
