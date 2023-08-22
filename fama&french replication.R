@@ -325,3 +325,6 @@ oil_price$year = year(oil_price$observation_date)
 oil_price$month = month(oil_price$observation_date)
 FF3_Re = merge(FF3_Re, oil_price[, c("year", "month", "oilprice")], by = c("year", "month"), all.x = TRUE)
 
+mktlm = lm(MKT~ MP+UI+UPR+UTS+con+oilprice, data = FF3_Re)
+smblm = lm(SMB~ MP+UI+UPR+UTS+con+oilprice, data = FF3_Re)
+hmllm = lm(HML~ MP+UI+UPR+UTS+con+oilprice, data = FF3_Re)                  
