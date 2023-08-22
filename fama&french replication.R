@@ -277,74 +277,51 @@ merged_data$value_percentile = na.locf(merged_data$size_percentile, na.rm = FALS
 merged_data$size_percentile = na.locf(merged_data$size_percentile, fromLast = TRUE)
 merged_data$value_percentile = na.locf(merged_data$size_percentile, fromLast = TRUE)
 
-Industrial_production = as.data.table(read_excel("Industrial Production.xls"))
-Industrial_production[, observation_date := as.Date(observation_date)]
-Industrial_production = Industrial_production %>%
-  mutate(MP = log(INDPRO) - log(lag(INDPRO, 1)))
-
-Inflation = as.data.table(read_excel("CPI.xls"))
-Inflation[, observation_date := as.Date(observation_date)]
-Expected_Inflation = as.data.table(read_excel("1Year Expected Inflation.xls"))
-Expected_Inflation[, observation_date := as.Date(observation_date)]
-CPI_data = merge(Inflation, Expected_Inflation, by = "observation_date")
-CPI_data = CPI_data %>%
-  filter(CPI > 0) %>%
-  mutate(UI = log(CPI) - lag(EI, 1))
-
-baa_return = as.data.table(read_excel("BAA Return.xls"))
-lgb = as.data.table(read_excel("Long-term government bond return.xls"))
-UPR_data = merge(baa_return, lgb, by = "observation_date")
-UPR_data = UPR_data %>%
-  mutate(UPR = DBAA - LGB)
-
-TRB_data = as.data.table(read_excel("4-week TB rate.xls"))
-UTS_data = merge(lgb, TRB_data, by = "observation_date")
-UTS_data = UTS_data %>%
-  mutate(UTS = LGB - lag(DTB4WK, 1))
-
-consumption = as.data.table(read_excel("Consumption per capita.xls"))
+industrial_production = as.data.table(read_excel("Industrial Production.xls"))
+Oneyear_inflation = as.data.table(read_excel("1Year Expected Inflation.xls"))
+CPI = as.data.table(read_excel("CPI.xls"))
+longterm_bond = as.data.table(read_excel("Long-term government bond return.xls"))
 oil_price = as.data.table(read_excel("Petroleum Price Index.xls"))
+baa = as.data.table(read_excel("BAA.xls"))
+Tbill = as.data.table(read_excel("Tbill.xls"))
+consumption = as.data.table(read_excel("Consumption.xlsx"))
 
-start_date = as.Date("1986-08-01")
-end_date = as.Date("2023-06-01")
-Industrial_production_f = Industrial_production[observation_date >= start_date & observation_date <= end_date]
-FF3_2 = FF3_Re
-FF3_Re_2$Date = as.yearmon(FF3_Re_2$Date)
-Industrial_production_f$observation_date = as.yearmon(Industrial_production_f$observation_date)
-merged_MP = merge(FF3_Re_2, Industrial_production_f, by.x = "Date", by.y = "observation_date")
-lm1 = lm(MKT ~ MP, data = merged_MP)
-lm2 = lm(SMB ~ MP, data = merged_MP)
-lm3 = lm(HML ~ MP, data = merged_MP)
+industrial_production$MP = log(industrial_production$INDPRO/lag(industrial_production$INDPRO, 1))
+unexpected_inflation = merge(Oneyear_inflation, CPI, by = "observation_date", all = TRUE)
+unexpected_inflation$UI = unexpected_inflation$CPI - lag(unexpected_inflation$EI, 1)
+risk_premia = merge(baa, longterm_bond, by = "observation_date", all = TRUE)
+risk_premia$UPR = risk_premia$BAA - risk_premia$LGB
+term_structure = merge(longterm_bond, Tbill, by = "observation_date", all = TRUE)
+term_structure$UTS = term_structure$LGB - term_structure$GS1M
 
-start_date_2 = as.Date("1986-07-31")
-end_date_2 = as.Date("2019-05-31")
-FF3_3= FF3_Re
-FF3_3_f = FF3_3[Date >= start_date_2 & Date <= end_date_2]
-FF3_3_f$Date = as.yearmon(FF3_3_f$Date)
-CPI_data$observation_date = as.yearmon(CPI_data$observation_date)
-merged_CPI = merge(FF3_3_f, CPI_data, by.x = "Date", by.y = "observation_date")
-lm4 = lm(MKT ~ UI, data = merged_CPI)
-lm5 = lm(SMB ~ UI, data = merged_CPI)
-lm6 = lm(HML ~ UI, data = merged_CPI)
+sf = function(x, n){
+  c(x[-(seq(n))], rep(NA, n))
+}
 
-end_date_3 = as.Date("2013-03-31")
-FF3_4= FF3_Re
-FF3_4_f = FF3_4[Date >= start_date_2 & Date <= end_date_3]
-FF3_4_f$Date = as.yearmon(FF3_4_f$Date)
-UPR_data$observation_date = as.yearmon(UPR_data$observation_date)
-merged_UPR = merge(FF3_4_f, UPR_data, by.x = "Date", by.y = "observation_date")
-lm7 = lm(MKT ~ UPR, data = merged_UPR)
-lm8 = lm(SMB ~ UPR, data = merged_UPR)
-lm9 = lm(HML ~ UPR, data = merged_UPR)
-
-start_date_3 = as.Date("2018-09-30")
-end_date_4 = as.Date("2022-02-28")
-FF3_5= FF3_Re
-FF3_5_f = FF3_5[Date >= start_date_3 & Date <= end_date_4]
-FF3_5_f$Date = as.yearmon(FF3_5_f$Date)
-UTS_data$observation_date = as.yearmon(UTS_data$observation_date)
-merged_UTS = merge(FF3_5_f, UTS_data, by.x = "Date", by.y = "observation_date")
-lm10 = lm(MKT ~ UTS, data = merged_UTS)
-lm11 = lm(SMB ~ UTS, data = merged_UTS)
-lm12 = lm(HML ~ UTS, data = merged_UTS)
+FF3_Re$Date = as.Date(FF3_Re$Date)
+FF3_Re$year = year(FF3_Re$Date)
+FF3_Re$month = month(FF3_Re$Date)
+industrial_production$MP = sf(industrial_production$MP, 1)
+industrial_production$year = year(industrial_production$observation_date)
+industrial_production$month = month(industrial_production$observation_date)
+FF3_Re = merge(FF3_Re, industrial_production[, c("year", "month", "MP")], by = c("year", "month"), all.x = TRUE)
+unexpected_inflation$UI = sf(unexpected_inflation$UI, 1)
+unexpected_inflation$year = year(unexpected_inflation$observation_date)
+unexpected_inflation$month = month(unexpected_inflation$observation_date)
+FF3_Re = merge(FF3_Re, unexpected_inflation[, c("year", "month", "UI")], by = c("year", "month"), all.x = TRUE)
+risk_premia$UPR = sf(risk_premia$UPR, 1)
+risk_premia$year = year(risk_premia$observation_date)
+risk_premia$month = month(risk_premia$observation_date)
+FF3_Re = merge(FF3_Re, risk_premia[, c("year", "month", "UPR")], by = c("year", "month"), all.x = TRUE)
+term_structure$UTS = sf(term_structure$UTS, 1)
+term_structure$year = year(term_structure$observation_date)
+term_structure$month = month(term_structure$observation_date)
+FF3_Re = merge(FF3_Re, term_structure[, c("year", "month", "UTS")], by = c("year", "month"), all.x = TRUE)
+consumption$year = year(consumption$Date)
+consumption$month = month(consumption$Date)
+FF3_Re = merge(FF3_Re, consumption[, c("year", "month", "con")], by = c("year", "month"), all.x = TRUE)
+oil_price$oilprice = sf(oil_price$oilprice, 1)
+oil_price$year = year(oil_price$observation_date)
+oil_price$month = month(oil_price$observation_date)
+FF3_Re = merge(FF3_Re, oil_price[, c("year", "month", "oilprice")], by = c("year", "month"), all.x = TRUE)
 
