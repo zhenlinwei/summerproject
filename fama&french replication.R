@@ -277,6 +277,8 @@ merged_data$value_percentile = na.locf(merged_data$size_percentile, na.rm = FALS
 merged_data$size_percentile = na.locf(merged_data$size_percentile, fromLast = TRUE)
 merged_data$value_percentile = na.locf(merged_data$size_percentile, fromLast = TRUE)
 
+##################################################
+ff3_replicated = as.data.table(read.csv("FF3 replicated.csv"))
 industrial_production = as.data.table(read_excel("Industrial Production.xls"))
 Oneyear_inflation = as.data.table(read_excel("1Year Expected Inflation.xls"))
 CPI = as.data.table(read_excel("CPI.xls"))
@@ -288,43 +290,42 @@ consumption = as.data.table(read_excel("Consumption.xlsx"))
 
 industrial_production$MP = log(industrial_production$INDPRO/lag(industrial_production$INDPRO, 1))
 unexpected_inflation = merge(Oneyear_inflation, CPI, by = "observation_date", all = TRUE)
-unexpected_inflation$UI = unexpected_inflation$CPI - lag(unexpected_inflation$EI, 1)
+unexpected_inflation$UI = log(unexpected_inflation$CPI) - lag(unexpected_inflation$EI, 1)
 risk_premia = merge(baa, longterm_bond, by = "observation_date", all = TRUE)
 risk_premia$UPR = risk_premia$BAA - risk_premia$LGB
 term_structure = merge(longterm_bond, Tbill, by = "observation_date", all = TRUE)
 term_structure$UTS = term_structure$LGB - term_structure$GS1M
 
-sf = function(x, n){
-  c(x[-(seq(n))], rep(NA, n))
-}
 
-FF3_Re$Date = as.Date(FF3_Re$Date)
-FF3_Re$year = year(FF3_Re$Date)
-FF3_Re$month = month(FF3_Re$Date)
+ff3_replicated$Date = as.Date(ff3_replicated$Date)
+ff3_replicated$year = year(ff3_replicated$Date)
+ff3_replicated$month = month(ff3_replicated$Date)
+
 industrial_production$MP = lag(industrial_production$MP)
 industrial_production$year = year(industrial_production$observation_date)
 industrial_production$month = month(industrial_production$observation_date)
-FF3_Re = merge(FF3_Re, industrial_production[, c("year", "month", "MP")], by = c("year", "month"), all.x = TRUE)
+ff3_replicated = merge(ff3_replicated, industrial_production[, c("year", "month", "MP")], by = c("year", "month"), all.x = TRUE)
 unexpected_inflation$UI = lag(unexpected_inflation$UI)
 unexpected_inflation$year = year(unexpected_inflation$observation_date)
 unexpected_inflation$month = month(unexpected_inflation$observation_date)
-FF3_Re = merge(FF3_Re, unexpected_inflation[, c("year", "month", "UI")], by = c("year", "month"), all.x = TRUE)
+ff3_replicated = merge(ff3_replicated, unexpected_inflation[, c("year", "month", "UI")], by = c("year", "month"), all.x = TRUE)
 risk_premia$UPR = lag(risk_premia$UPR)
 risk_premia$year = year(risk_premia$observation_date)
 risk_premia$month = month(risk_premia$observation_date)
-FF3_Re = merge(FF3_Re, risk_premia[, c("year", "month", "UPR")], by = c("year", "month"), all.x = TRUE)
+
+ff3_replicated = merge(ff3_replicated, risk_premia[, c("year", "month", "UPR")], by = c("year", "month"), all.x = TRUE)
 term_structure$UTS = lag(term_structure$UTS)
 term_structure$year = year(term_structure$observation_date)
 term_structure$month = month(term_structure$observation_date)
-FF3_Re = merge(FF3_Re, term_structure[, c("year", "month", "UTS")], by = c("year", "month"), all.x = TRUE)
+ff3_replicated = merge(ff3_replicated, term_structure[, c("year", "month", "UTS")], by = c("year", "month"), all.x = TRUE)
 consumption$con = lag(consumption$con)
 consumption$year = year(consumption$Date)
 consumption$month = month(consumption$Date)
-FF3_Re = merge(FF3_Re, consumption[, c("year", "month", "con")], by = c("year", "month"), all.x = TRUE)
+ff3_replicated = merge(ff3_replicated, consumption[, c("year", "month", "con")], by = c("year", "month"), all.x = TRUE)
 oil_price$oilprice = lag(oil_price$oilprice)
 oil_price$year = year(oil_price$observation_date)
 oil_price$month = month(oil_price$observation_date)
-FF3_Re = merge(FF3_Re, oil_price[, c("year", "month", "oilprice")], by = c("year", "month"), all.x = TRUE)
+ff3_replicated = merge(ff3_replicated, oil_price[, c("year", "month", "oilprice")], by = c("year", "month"), all.x = TRUE)
 
 mktlm = lm(MKT~ MP+UI+UPR+UTS+con+oilprice, data = FF3_Re)
 smblm = lm(SMB~ MP+UI+UPR+UTS+con+oilprice, data = FF3_Re)
@@ -332,4 +333,41 @@ hmllm = lm(HML~ MP+UI+UPR+UTS+con+oilprice, data = FF3_Re)
 
 summary(mktlm)
 summary(smblm)
-summary(hmllm)           
+summary(hmllm)
+
+
+subset_01 = ff3_replicated[ff3_replicated$year >= 2001, ]
+mktlm01 = lm(MKT~ MP+UI+UPR+UTS+con+oilprice, data = subset_01)
+smblm01 = lm(SMB~ MP+UI+UPR+UTS+con+oilprice, data = subset_01)
+hmllm01 = lm(HML~ MP+UI+UPR+UTS+con+oilprice, data = subset_01)
+
+summary(mktlm01)
+summary(smblm01)
+summary(hmllm01)
+
+library(ggplot2)
+subset_01$cumulative_smb = cumprod(1 + subset_01$SMB)-1
+subset_01$cumulative_mkt = cumprod(1 + subset_01$MKT)-1
+
+p = ggplot(subset_01, aes(x = Date)) +
+  geom_line(aes(y = cumulative_mkt, color = "MKT")) +
+  geom_line(aes(y = UI, color = "UI")) +
+  scale_color_manual(values = c("MKT" = "blue", "UI" = "red")) +
+  scale_y_continuous(name = "MKT", 
+                     sec.axis = sec_axis(~./1, name = "UI")) +
+  labs(x = "Time", color = "Variable") +
+  theme_minimal()
+
+print(p)
+
+p2 = ggplot(subset_01, aes(x = Date)) +
+  geom_line(aes(y = cumulative_smb, color = "smb")) +
+  geom_line(aes(y = oilprice, color = "oilprice")) +
+  scale_color_manual(values = c("smb" = "blue", "oilprice" = "red")) +
+  scale_y_continuous(name = "smb", 
+                     sec.axis = sec_axis(~./1, name = "oilprice")) +
+  labs(x = "Time", color = "Variable") +
+  theme_minimal()
+
+print(p2)
+                   
