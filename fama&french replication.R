@@ -348,12 +348,13 @@ print(p)
 
 p2 = ggplot(subset_01, aes(x = Date)) +
   geom_line(aes(y = cumulative_smb, color = "smb")) +
-  geom_line(aes(y = oilprice, color = "oilprice")) +
+  geom_line(aes(y = oilprice/100, color = "oilprice")) +
   scale_color_manual(values = c("smb" = "blue", "oilprice" = "red")) +
-  scale_y_continuous(name = "smb", 
+  scale_y_continuous(name = "smb",
+                     limits = c(0,5),
                      sec.axis = sec_axis(~./1, name = "oilprice")) +
   labs(x = "Time", color = "Variable") +
   theme_minimal()
 
 print(p2)
-                   
+      
