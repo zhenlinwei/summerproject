@@ -327,23 +327,9 @@ oil_price$year = year(oil_price$observation_date)
 oil_price$month = month(oil_price$observation_date)
 ff3_replicated = merge(ff3_replicated, oil_price[, c("year", "month", "oilprice")], by = c("year", "month"), all.x = TRUE)
 
-mktlm = lm(MKT~ MP+UI+UPR+UTS+con+oilprice, data = FF3_Re)
-smblm = lm(SMB~ MP+UI+UPR+UTS+con+oilprice, data = FF3_Re)
-hmllm = lm(HML~ MP+UI+UPR+UTS+con+oilprice, data = FF3_Re)
-
-summary(mktlm)
-summary(smblm)
-summary(hmllm)
-
 
 subset_01 = ff3_replicated[ff3_replicated$year >= 2001, ]
-mktlm01 = lm(MKT~ MP+UI+UPR+UTS+con+oilprice, data = subset_01)
-smblm01 = lm(SMB~ MP+UI+UPR+UTS+con+oilprice, data = subset_01)
-hmllm01 = lm(HML~ MP+UI+UPR+UTS+con+oilprice, data = subset_01)
 
-summary(mktlm01)
-summary(smblm01)
-summary(hmllm01)
 
 library(ggplot2)
 subset_01$cumulative_smb = cumprod(1 + subset_01$SMB)-1
