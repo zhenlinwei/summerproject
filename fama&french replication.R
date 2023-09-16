@@ -3,6 +3,7 @@ library(dplyr)
 library(zoo)
 library(data.table)
 library(lubridate)
+setwd("C:/Users/HarryZhao/OneDrive - Rayliant Global Advisors/Rayliant/Student Program/2023 Summer/Zhenlin/summerproject/")
 financial_data = read_excel("financialdata excel.xlsx")
 market_data = read_excel("marketdata excel.xlsx")
 financial_data = as.data.table(read_excel("financialdata excel.xlsx"))
@@ -279,8 +280,8 @@ merged_data$value_percentile = na.locf(merged_data$size_percentile, fromLast = T
 
 ##################################################
 
-ff3_replicated = as.data.table(read.csv("FF3 replicated.csv"))
-fama = as.data.table(read.csv("fama.csv"))
+# ff3_replicated = as.data.table(read.csv("FF3 replicated.csv"))
+fama = as.data.table(read.csv("fama.csv"), stringsAsFactors=FALSE)
 industrial_production = as.data.table(read_excel("Industrial Production.xls"))
 Oneyear_inflation = as.data.table(read_excel("1Year Expected Inflation.xls"))
 CPI = as.data.table(read_excel("CPI.xls"))
@@ -294,14 +295,18 @@ industrial_production$MP = log(industrial_production$INDPRO/lag(industrial_produ
 unexpected_inflation = merge(Oneyear_inflation, CPI, by = "observation_date", all = TRUE)
 unexpected_inflation$UI = unexpected_inflation$CPI - lag(unexpected_inflation$EI, 1)
 risk_premia = merge(baa, longterm_bond, by = "observation_date", all = TRUE)
-risk_premia$UPR = risk_premia$BAA - risk_premia$LGB
+risk_premia$URP = risk_premia$BAA - risk_premia$LGB
 term_structure = merge(longterm_bond, Tbill, by = "observation_date", all = TRUE)
 term_structure$UTS = term_structure$LGB - term_structure$GS1M
 
+ff3_replicated <- fama[,.(Date = as.yearmon(paste0(substr(Date, 1, 4), "-", substr(Date, 5, 6))),
+                          year = as.numeric(substr(Date, 1, 4)), month = as.numeric(substr(Date, 5, 6)), MKT = as.numeric(Mkt.RF)/100 + as.numeric(RF)/100, 
+                          SMB = as.numeric(SMB)/100, HML= as.numeric(HML)/100, RF = as.numeric(RF)/100)]
 
-ff3_replicated$Date = as.Date(ff3_replicated$Date)
-ff3_replicated$year = year(ff3_replicated$Date)
-ff3_replicated$month = month(ff3_replicated$Date)
+# ff3_replicated$Date = as.Date(ff3_replicated$Date)
+# ff3_replicated$year = year(ff3_replicated$Date)
+# ff3_replicated$month = month(ff3_replicated$Date)
+
 
 industrial_production$MP = lag(industrial_production$MP)
 industrial_production$year = year(industrial_production$observation_date)
@@ -311,11 +316,11 @@ unexpected_inflation$UI = lag(unexpected_inflation$UI)
 unexpected_inflation$year = year(unexpected_inflation$observation_date)
 unexpected_inflation$month = month(unexpected_inflation$observation_date)
 ff3_replicated = merge(ff3_replicated, unexpected_inflation[, c("year", "month", "UI")], by = c("year", "month"), all.x = TRUE)
-risk_premia$UPR = lag(risk_premia$UPR)
+risk_premia$URP = lag(risk_premia$URP)
 risk_premia$year = year(risk_premia$observation_date)
 risk_premia$month = month(risk_premia$observation_date)
 
-ff3_replicated = merge(ff3_replicated, risk_premia[, c("year", "month", "UPR")], by = c("year", "month"), all.x = TRUE)
+ff3_replicated = merge(ff3_replicated, risk_premia[, c("year", "month", "URP")], by = c("year", "month"), all.x = TRUE)
 term_structure$UTS = lag(term_structure$UTS)
 term_structure$year = year(term_structure$observation_date)
 term_structure$month = month(term_structure$observation_date)
@@ -334,30 +339,30 @@ oil_price$month = month(oil_price$observation_date)
 ff3_replicated = merge(ff3_replicated, oil_price[, c("year", "month", "oil_growth", "oilprice")], by = c("year", "month"), all.x = TRUE)
 
 
-summary(mktlm)
-summary(smblm)
-summary(hmllm)
+# summary(mktlm)
+# summary(smblm)
+# summary(hmllm)
 
 
 subset_01 = ff3_replicated[ff3_replicated$year >= 1999, ]
-
 
 library(ggplot2)
 
 subset_01$cumulative_smb = cumprod(1 + subset_01$SMB)-1
 subset_01$cumulative_mkt = cumprod(1 + subset_01$MKT)-1
+subset_01$cumulative_hml = cumprod(1 + subset_01$HML)-1
 
-p = ggplot(subset_01, aes(x = Date)) +
-  geom_line(aes(y = cumulative_mkt, color = "MKT")) +
-  geom_line(aes(y = UI, color = "UI")) +
-  scale_color_manual(values = c("MKT" = "blue", "UI" = "red")) +
-  scale_y_continuous(name = "MKT", 
-                     sec.axis = sec_axis(~./1, name = "UI")) +
-  labs(x = "Time", color = "Variable") +
-  theme_minimal()
-
-print(p)
-
+# p = ggplot(subset_01, aes(x = Date)) +
+#   geom_line(aes(y = cumulative_mkt, color = "MKT")) +
+#   geom_line(aes(y = UI, color = "UI")) +
+#   scale_color_manual(values = c("MKT" = "blue", "UI" = "red")) +
+#   scale_y_continuous(name = "MKT", 
+#                      sec.axis = sec_axis(~./1, name = "UI")) +
+#   labs(x = "Time", color = "Variable") +
+#   theme_minimal()
+# 
+# print(p)
+# 
 p2 = ggplot(subset_01, aes(x = Date)) +
   geom_line(aes(y = cumulative_smb, color = "smb")) +
   geom_line(aes(y = oilprice/100, color = "oilprice")) +
@@ -372,207 +377,273 @@ print(p2)
 
 library(dplyr)
 
-subset_01 = subset_01 %>%
-  mutate(signal = sign(oil_growth),
-         trading_signal = case_when(
-           signal == 1 & lag(signal) == 1 ~ "1",
-           signal == -1 & lag(signal) == -1 ~ "-1",
-           TRUE ~ "0"
-         ))
-subset_01 = subset_01 %>%
-  select(-signal)
-fama_subset <- fama[871:1161, .(RF)] 
-if(nrow(fama_subset) > nrow(subset_01)) {
-  fama_subset = fama_subset[1:nrow(subset_01), ]
-} else {
-  subset_01 = subset_01[1:nrow(fama_subset), ]
-}
-subset_01 = cbind(subset_01, fama_subset)
-
-subset_01 = subset_01 %>%
-  mutate(trading_signal = replace(trading_signal, trading_signal == 0, NA)) %>%
-  fill(trading_signal, .direction = "down")
-
-subset_01$trading_signal[is.na(subset_01$trading_signal)]<- -1
-subset_01$SMB = as.numeric(subset_01$SMB)
-subset_01$RF = as.numeric(subset_01$RF)
-subset_01 = subset_01 %>%
-  mutate(ret = case_when(
-    trading_signal == 1 ~ SMB,
-    trading_signal == -1 ~ RF/100,
-    TRUE ~ NA_real_
-  ))
-subset_01 = subset_01 %>%
-  fill(ret, .direction = "up")
-subset_01$cumulative_ret = cumprod(1 + subset_01$ret)-1
-p3 = ggplot(subset_01, aes(x = Date)) +
-  geom_line(aes(y = cumulative_smb, color = "smb")) +
-  geom_line(aes(y = cumulative_ret, color = "ret")) +
-  scale_color_manual(values = c("smb" = "blue", "ret" = "red")) +
-  scale_y_continuous(name = "smb",
-                     sec.axis = sec_axis(~./1, name = "ret")) +
-  labs(x = "Time", color = "Variable") +
-  theme_minimal()
-
-print(p3)
-
-subset_01_1 = subset_01[, .(Date, trading_signal, SMB, RF, ret)]
-subset_01_1 = subset_01_1[-1, ]
-prod(subset_01_1$ret+1)-1
-prod(subset_01_1$SMB+1)-1
+# subset_01 = subset_01 %>%
+#   mutate(signal = sign(oil_growth),
+#          trading_signal = case_when(
+#            signal == 1 & lag(signal) == 1 ~ "1",
+#            signal == -1 & lag(signal) == -1 ~ "-1",
+#            TRUE ~ "0"
+#          ))
+# subset_01 = subset_01 %>%
+#   select(-signal)
+# fama_subset <- fama[871:1161, .(RF)] 
+# if(nrow(fama_subset) > nrow(subset_01)) {
+#   fama_subset = fama_subset[1:nrow(subset_01), ]
+# } else {
+#   subset_01 = subset_01[1:nrow(fama_subset), ]
+# }
+# subset_01 = cbind(subset_01, fama_subset)
+# 
+# subset_01 = subset_01 %>%
+#   mutate(trading_signal = replace(trading_signal, trading_signal == 0, NA)) %>%
+#   fill(trading_signal, .direction = "down")
+# 
+# subset_01$trading_signal[is.na(subset_01$trading_signal)]<- -1
+# subset_01$SMB = as.numeric(subset_01$SMB)
+# subset_01$RF = as.numeric(subset_01$RF)
+# subset_01 = subset_01 %>%
+#   mutate(ret = case_when(
+#     trading_signal == 1 ~ SMB,
+#     trading_signal == -1 ~ RF/100,
+#     TRUE ~ NA_real_
+#   ))
+# subset_01 = subset_01 %>%
+#   fill(ret, .direction = "up")
+# subset_01$cumulative_ret = cumprod(1 + subset_01$ret)-1
+# p3 = ggplot(subset_01, aes(x = Date)) +
+#   geom_line(aes(y = cumulative_smb, color = "smb")) +
+#   geom_line(aes(y = cumulative_ret, color = "ret")) +
+#   scale_color_manual(values = c("smb" = "blue", "ret" = "red")) +
+#   scale_y_continuous(name = "smb",
+#                      sec.axis = sec_axis(~./1, name = "ret")) +
+#   labs(x = "Time", color = "Variable") +
+#   theme_minimal()
+# 
+# print(p3)
+# 
+# subset_01_1 = subset_01[, .(Date, trading_signal, SMB, RF, ret)]
+# subset_01_1 = subset_01_1[-1, ]
+# prod(subset_01_1$ret+1)-1
+# prod(subset_01_1$SMB+1)-1
  
 #consumption and oil price growth to regression 
-mktlm01 = lm(MKT~ MP+UI+UPR+UTS+con_growth+oil_growth, data = subset_01)
-smblm01 = lm(SMB~ MP+UI+UPR+UTS+con_growth+oil_growth, data = subset_01)
-hmllm01 = lm(HML~ MP+UI+UPR+UTS+con_growth+oil_growth, data = subset_01)
+mktlm01 = lm(MKT~ MP+UI+URP+UTS+con_growth+oil_growth, data = subset_01)
+smblm01 = lm(SMB~ MP+UI+URP+UTS+con_growth+oil_growth, data = subset_01)
+hmllm01 = lm(HML~ MP+UI+URP+UTS+con_growth+oil_growth, data = subset_01)
 
 summary(mktlm01)
 summary(smblm01)
 summary(hmllm01)
 
 #MKT vs UI graph
-print(p)
+# print(p)
 
 #rolling look back, 12 month rolling average of UI if +, long mkt, if -, short mkt->rf
+
 subset_01$rolling_avg = rollmean(subset_01$UI, k=12, align="right", fill=NA)
-subset_01$mkt_trading = ifelse(subset_01$UI > subset_01$rolling_avg, subset_01$MKT, subset_01$RF/100)
+subset_01$mkt_sig = ifelse(subset_01$UI > subset_01$rolling_avg, 1, 0)
+subset_01$mkt_trading = ifelse(subset_01$UI > subset_01$rolling_avg, subset_01$MKT, subset_01$RF)
 
-subset_01$con_avg = rollmean(subset_01$con_growth, k=12, align="right", fill=NA)
-subset_01$hml_trading = ifelse(subset_01$con_growth > subset_01$con_avg, subset_01$HML, subset_01$RF/100)
+# subset_01$oil_avg = rollmean(subset_01$oilprice, k=6, align="right", fill=NA)
+subset_01$smb_sig = ifelse(subset_01$oilprice > lag(subset_01$oilprice), 1, 0)
+subset_01$smb_trading = ifelse(subset_01$oilprice > lag(subset_01$oilprice), subset_01$SMB, -subset_01$SMB)
 
-subset_01$oil_avg = rollmean(subset_01$oil_growth, k=12, align="right", fill=NA)
-subset_01$smb_trading = ifelse(subset_01$oil_growth > subset_01$oil_avg, subset_01$SMB, subset_01$RF/100)
+# subset_01$uts_avg = rollmean(subset_01$UTS, k=12, align="right", fill=NA)
+subset_01$hml_sig1 = ifelse(subset_01$UTS > lag(subset_01$UTS), 1, 0)
+subset_01$hml_trading1 = ifelse(subset_01$UTS > lag(subset_01$UTS), subset_01$HML, -subset_01$HML)
 
-subset_01$upr_avg = rollmean(subset_01$UPR, k=12, align="right", fill=NA)
-subset_01$smb_trading_2 = ifelse(subset_01$UPR > subset_01$upr_avg, subset_01$SMB, subset_01$RF/100)
+# subset_01$con_avg = rollmean(subset_01$con_growth, k=12, align="right", fill=NA)
+subset_01$hml_sig2 = ifelse(subset_01$con > lag(subset_01$con), 1, 0)
+subset_01$hml_trading2 = ifelse(subset_01$con > lag(subset_01$con), subset_01$HML, -subset_01$HML)
 
-subset_01 = subset_01[-(1:12), ]
+tradingStrats = subset_01[-(1:12), ]
 
-subset_01$cumulative_hml = cumprod(1 + subset_01$HML)-1
-subset_01$cumulative_smb_t = cumprod(1 + subset_01$smb_trading)-1
-subset_01$cumulative_smb_t_2 = cumprod(1 + subset_01$smb_trading_2)-1
-subset_01$cumulative_hml_t = cumprod(1 + subset_01$hml_trading)-1
+# tradingStrats$cumulative_hml = cumprod(1 + tradingStrats$HML)-1
+tradingStrats$mkt_ui = cumprod(1 + tradingStrats$mkt_trading)-1
+tradingStrats$smb_oil = cumprod(1 + tradingStrats$smb_trading)-1
+tradingStrats$hml_uts = cumprod(1 + tradingStrats$hml_trading1)-1
+tradingStrats$hml_con = cumprod(1 + tradingStrats$hml_trading2)-1
 
+# # check
+# ggplot(subset_01, aes(x = Date)) +
+#   geom_line(aes(y = cumulative_mkt, color = "cumulative_smb")) +
+#   geom_line(aes(y = UI/1, color = "UI")) +
+#   scale_color_manual(values = c("cumulative_smb" = "blue", "UI" = "red")) +
+#   scale_y_continuous(name = "cumulative_smb",
+#                      sec.axis = sec_axis(~./1, name = "")) +
+#   labs(x = "Time", color = "Variable") +
+#   theme_minimal()
 
+ggplot(tradingStrats, aes(x = Date)) +
+  geom_line(aes(y = cumulative_mkt, color = "cumulative_smb")) +
+  geom_line(aes(y = mkt_ui, color = "mkt_ui")) +
+  scale_color_manual(values = c("cumulative_smb" = "blue", "mkt_ui" = "red")) +
+  scale_y_continuous(name = "cumulative_smb",
+                     sec.axis = sec_axis(~./1, name = "")) +
+  labs(x = "Time", color = "Variable") +
+  theme_minimal()
 
-p4 = ggplot(subset_01, aes(x = Date)) +
+ggplot(tradingStrats, aes(x = Date)) +
+  geom_line(aes(y = cumulative_smb, color = "cumulative_smb")) +
+  geom_line(aes(y = smb_oil, color = "smb_oil")) +
+  scale_color_manual(values = c("cumulative_smb" = "blue", "smb_oil" = "red")) +
+  scale_y_continuous(name = "cumulative_smb",
+                     sec.axis = sec_axis(~./1, name = "")) +
+  labs(x = "Time", color = "Variable") +
+  theme_minimal()
+
+ggplot(tradingStrats, aes(x = Date)) +
   geom_line(aes(y = cumulative_hml, color = "cumulative_hml")) +
-  geom_line(aes(y = cumulative_hml_t, color = "cumulative_hml_t")) +
-  scale_color_manual(values = c("cumulative_hml" = "blue", "cumulative_hml_t" = "red")) +
+  geom_line(aes(y = hml_uts, color = "hml_uts")) +
+  geom_line(aes(y = URP/10, color = "hml_uts")) +
+  scale_color_manual(values = c("cumulative_hml" = "blue", "hml_uts" = "red")) +
+  scale_y_continuous(name = "cumulative_hml",
+                     sec.axis = sec_axis(~./10, name = "urp")) +
+  labs(x = "Time", color = "Variable") +
+  theme_minimal()
+
+ggplot(tradingStrats, aes(x = Date)) +
+  geom_line(aes(y = cumulative_hml, color = "cumulative_hml")) +
+  geom_line(aes(y = hml_con, color = "hml_con")) +
+  scale_color_manual(values = c("cumulative_hml" = "blue", "hml_con" = "red")) +
   scale_y_continuous(name = "cumulative_hml",
                      sec.axis = sec_axis(~./1, name = "cumulative_con_growth")) +
   labs(x = "Time", color = "Variable") +
   theme_minimal()
 
-print(p4)
-
-p5 = ggplot(subset_01, aes(x = Date)) +
-  geom_line(aes(y = cumulative_smb, color = "cumulative_smb")) +
-  geom_line(aes(y = cumulative_smb_t, color = "cumulative_smb_t")) +
-  scale_color_manual(values = c("cumulative_smb" = "blue", "cumulative_smb_t" = "red")) +
-  scale_y_continuous(name = "cumulative_smb",
-                     sec.axis = sec_axis(~./1, name = "cumulative oil growth")) +
-  labs(x = "Time", color = "Variable") +
-  theme_minimal()
-
-print(p5)
-
-p6 = ggplot(subset_01, aes(x = Date)) +
-  geom_line(aes(y = cumulative_smb, color = "cumulative_smb")) +
-  geom_line(aes(y = cumulative_smb_t_2, color = "cumulative_smb_t_2")) +
-  scale_color_manual(values = c("cumulative_smb" = "blue", "cumulative_smb_t_2" = "red")) +
-  scale_y_continuous(name = "cumulative_smb",
-                     sec.axis = sec_axis(~./1, name = "cumulative_upr_signal")) +
-  labs(x = "Time", color = "Variable") +
-  theme_minimal()
-
-print(p6)
-
-signal_return = subset_01[, .(Date, MKT, HML, SMB, RF, con_growth, oil_growth, oil_avg, con_avg, cumulative_smb, cumulative_hml)]
-signal_return$hml_trading = ifelse(signal_return$con_growth > signal_return$con_avg, "1", "-1")
-signal_return$smb_trading = ifelse(signal_return$oil_growth > signal_return$oil_avg, "1", "-1")
-
-signal_return = signal_return %>%
-  mutate(smb_hml_rf = case_when(
-    hml_trading == 1 & smb_trading == -1 ~ HML,
-    hml_trading == -1 & smb_trading == 1 ~ SMB,
-    hml_trading == 1 & smb_trading == 1 ~ 0.5*SMB + 0.5*HML,
-    hml_trading == -1 & smb_trading == -1 ~ RF/100,
-  ))
-
-signal_return$cumulative_ret = cumprod(1 + signal_return$ret)-1
-
-p7 = ggplot(signal_return, aes(x = Date)) +
-  geom_line(aes(y = cumulative_smb, color = "cumulative_smb")) +
-  geom_line(aes(y = cumulative_ret, color = "cumulative_ret")) +
-  scale_color_manual(values = c("cumulative_smb" = "blue", "cumulative_ret" = "red")) +
-  scale_y_continuous(name = "cumulative_smb",
-                     sec.axis = sec_axis(~./1, name = "cumulative_ret")) +
-  labs(x = "Time", color = "Variable") +
-  theme_minimal()
-
-print(p7)
-
-p8 = ggplot(signal_return, aes(x = Date)) +
-  geom_line(aes(y = cumulative_hml, color = "cumulative_hml")) +
-  geom_line(aes(y = cumulative_ret, color = "cumulative_ret")) +
-  scale_color_manual(values = c("cumulative_hml" = "blue", "cumulative_ret" = "red")) +
-  scale_y_continuous(name = "cumulative_hml",
-                     sec.axis = sec_axis(~./1, name = "cumulative_ret")) +
-  labs(x = "Time", color = "Variable") +
-  theme_minimal()
-
-print(p8)
 
 
-signal_return$hml_rf = ifelse(signal_return$con_growth > signal_return$con_avg, signal_return$HML, signal_return$RF/100)
-signal_return$smb_rf = ifelse(signal_return$oil_growth > signal_return$oil_avg, signal_return$SMB, signal_return$RF/100)
+# -----------------
 
-portfolio = signal_return[, .(Date, MKT, SMB, HML, RF, smb_rf, hml_rf, smb_hml_rf)]
+# 
+# 
+# signal_return = subset_01[, .(Date, MKT, HML, SMB, RF, con_growth, oil_growth, oil_avg, con_avg, cumulative_smb, cumulative_hml)]
+# signal_return$hml_trading = ifelse(signal_return$con_growth > signal_return$con_avg, "1", "-1")
+# signal_return$smb_trading = ifelse(signal_return$oil_growth > signal_return$oil_avg, "1", "-1")
+# 
+# signal_return = signal_return %>%
+#   mutate(smb_hml_rf = case_when(
+#     hml_trading == 1 & smb_trading == -1 ~ HML,
+#     hml_trading == -1 & smb_trading == 1 ~ SMB,
+#     hml_trading == 1 & smb_trading == 1 ~ 0.5*SMB + 0.5*HML,
+#     hml_trading == -1 & smb_trading == -1 ~ RF/100,
+#   ))
+# 
+# signal_return$cumulative_ret = cumprod(1 + signal_return$ret)-1
+# 
+# p7 = ggplot(signal_return, aes(x = Date)) +
+#   geom_line(aes(y = cumulative_smb, color = "cumulative_smb")) +
+#   geom_line(aes(y = cumulative_ret, color = "cumulative_ret")) +
+#   scale_color_manual(values = c("cumulative_smb" = "blue", "cumulative_ret" = "red")) +
+#   scale_y_continuous(name = "cumulative_smb",
+#                      sec.axis = sec_axis(~./1, name = "cumulative_ret")) +
+#   labs(x = "Time", color = "Variable") +
+#   theme_minimal()
+# 
+# print(p7)
+# 
+# p8 = ggplot(signal_return, aes(x = Date)) +
+#   geom_line(aes(y = cumulative_hml, color = "cumulative_hml")) +
+#   geom_line(aes(y = cumulative_ret, color = "cumulative_ret")) +
+#   scale_color_manual(values = c("cumulative_hml" = "blue", "cumulative_ret" = "red")) +
+#   scale_y_continuous(name = "cumulative_hml",
+#                      sec.axis = sec_axis(~./1, name = "cumulative_ret")) +
+#   labs(x = "Time", color = "Variable") +
+#   theme_minimal()
+# 
+# print(p8)
+# 
+# 
+# signal_return$hml_rf = ifelse(signal_return$con_growth > signal_return$con_avg, signal_return$HML, signal_return$RF/100)
+# signal_return$smb_rf = ifelse(signal_return$oil_growth > signal_return$oil_avg, signal_return$SMB, signal_return$RF/100)
 
-mkt_ann_ret = prod(1+portfolio$MKT)^(12/267)-1
-smb_ann_ret = prod(1+portfolio$SMB)^(12/267)-1
-hml_ann_ret = prod(1+portfolio$HML)^(12/267)-1
-smbrf_ann_ret = prod(1+portfolio$smb_rf)^(12/267)-1
-hmlrf_ann_ret = prod(1+portfolio$hml_rf)^(12/267)-1
-smbhmlrf_ann_ret = prod(1+portfolio$smb_hml_rf)^(12/267)-1
+portfolio = tradingStrats[, .(Date, MKT, SMB, HML, RF, smb_trading, hml_trading2)]
+portfolio[, portRet0 := 0.5 * smb_trading + 0.5 * hml_trading2]
+portfolio[, portRet1 := 0.25 * smb_trading + 0.25 * hml_trading2 + 0.5 * MKT]
+portfolio[, portRet2 := 0.25 * SMB + 0.25 * HML + 0.5 * MKT]
+cumPort <- portfolio[,.(Date, 
+                        mktCum = cumprod(1+MKT)-1, 
+                        smbCum = cumprod(1+SMB)-1, 
+                        hmlCum = cumprod(1+HML)-1,
+                        smbStrCum = cumprod(1+smb_trading)-1,
+                        hmlStrCum = cumprod(1+hml_trading2)-1,
+                        retCum0 = cumprod(1+portRet0)-1,
+                        retCum1 = cumprod(1+portRet1)-1,
+                        retCum2 = cumprod(1+portRet2)-1)]
 
-mkt_ann_vol = sd(portfolio$MKT)*sqrt(12)
-smb_ann_vol = sd(portfolio$SMB)*sqrt(12)
-hml_ann_vol = sd(portfolio$hml)*sqrt(12)
-smbrf_ann_vol = sd(portfolio$smb_rf)*sqrt(12)
-hmlrf_ann_vol = sd(portfolio$hml_rf)*sqrt(12)
-smbhmlrf_ann_vol = sd(portfolio$smb_hml_rf)*sqrt(12)
+ggplot(cumPort, aes(x = Date)) +
+  geom_line(aes(y = mktCum, color = "mktCum")) +
+  # geom_line(aes(y = smbStrCum, color = "smbStrCum")) +
+  # geom_line(aes(y = hmlStrCum, color = "hmlStrCum")) +
+  geom_line(aes(y = retCum0, color = "retCum0")) +
+  geom_line(aes(y = retCum1, color = "retCum1")) +
+  geom_line(aes(y = retCum2, color = "retCum2")) 
 
-portfolio$RF = portfolio$RF/100
-portfolio$mktnum = portfolio$MKT - portfolio$RF
-portfolio$smbnum = portfolio$SMB - portfolio$RF
-portfolio$hmlnum = portfolio$HML - portfolio$RF
-portfolio$smbrfnum = portfolio$smb_rf - portfolio$RF
-portfolio$hmlrfnum = portfolio$hml_rf - portfolio$RF
-portfolio$smbhmlrfnum = portfolio$smb_hml_rf - portfolio$RF
+# strategy analytics
+drawdown <- function(pnl) {
+  cumPnl  <- cumprod(1+pnl)
+  drawdown <- cumPnl/cummax(cumPnl)-1
+  return(tail(drawdown, -1))
+}
 
-ann_mktnum = prod(1+portfolio$mktnum)^(12/267)-1
-ann_smbnum = prod(1+portfolio$smbnum)^(12/267)-1
-ann_hmlnum = prod(1+portfolio$hmlnum)^(12/267)-1
-ann_smbrfnum = prod(1+portfolio$smbrfnum)^(12/267)-1
-ann_hmlrfnum = prod(1+portfolio$hmlrfnum)^(12/267)-1
-ann_smbhmlrfnum = prod(1+portfolio$smbhmlrfnum)^(12/267)-1
+maxdrawdown <- function(pnl)min(drawdown(pnl))
 
-mkt_sharpe = ann_mktnum/mkt_ann_vol
-smb_sharpe = ann_smbnum/smb_ann_vol
-hml_sharpe = ann_hmlnum/hml_ann_vol
-smbrf_sharpe = ann_smbrfnum/smbrf_ann_vol
-hmlrf_sharpe = ann_hmlrfnum/hmlrf_ann_vol
-smbhmlrf_sharpe = ann_smbhmlrfnum/smbhmlrf_ann_vol
+getAnalytics <- function(ret){
+  annRet = prod(1+ret)^(12/nrow(portfolio))-1
+  annVol = sd(ret)*sqrt(12)
+  sr = (prod(1+ret- portfolio$RF)^(12/nrow(portfolio))-1)/(sd(ret)*sqrt(12))
+  maxDD = maxdrawdown(ret)
+  return(c("Ann. Return" = annRet, 
+           "Ann. Vol." = annVol, 
+           "Sharpe Ratio" = sr, 
+           "Max Drawdown" = maxDD))
+}
 
-values = c(mkt_sharpe, smb_sharpe, hml_sharpe, smbrf_sharpe, hmlrf_sharpe, smbhmlrf_sharpe)
-names = c("mkt_sharpe", "smb_sharpe", "hml_sharpe", "smbrf_sharpe", "hmlrf_sharpe", "smbhmlrf_sharpe")
+lapply(portfolio[,.(MKT, SMB, HML, portRet1)], getAnalytics)
 
-portfolio$cumulative_mkt = cumprod(1 + portfolio$hmlrfnum)-1
-
-ggplot(portfolio, aes(x=Date, y=cumulative_mkt)) +
-  geom_line() +
-  labs(title="HML over Time", x="Date", y="HML") +
-  theme_minimal()
+# mkt_ann_ret = prod(1+portfolio$MKT)^(12/267)-1
+# smb_ann_ret = prod(1+portfolio$SMB)^(12/267)-1
+# hml_ann_ret = prod(1+portfolio$HML)^(12/267)-1
+# smbrf_ann_ret = prod(1+portfolio$smb_rf)^(12/267)-1
+# hmlrf_ann_ret = prod(1+portfolio$hml_rf)^(12/267)-1
+# smbhmlrf_ann_ret = prod(1+portfolio$smb_hml_rf)^(12/267)-1
+# 
+# mkt_ann_vol = sd(portfolio$MKT)*sqrt(12)
+# smb_ann_vol = sd(portfolio$SMB)*sqrt(12)
+# hml_ann_vol = sd(portfolio$hml)*sqrt(12)
+# smbrf_ann_vol = sd(portfolio$smb_rf)*sqrt(12)
+# hmlrf_ann_vol = sd(portfolio$hml_rf)*sqrt(12)
+# smbhmlrf_ann_vol = sd(portfolio$smb_hml_rf)*sqrt(12)
+# 
+# portfolio$RF = portfolio$RF/100
+# portfolio$mktnum = portfolio$MKT - portfolio$RF
+# portfolio$smbnum = portfolio$SMB - portfolio$RF
+# portfolio$hmlnum = portfolio$HML - portfolio$RF
+# portfolio$smbrfnum = portfolio$smb_rf - portfolio$RF
+# portfolio$hmlrfnum = portfolio$hml_rf - portfolio$RF
+# portfolio$smbhmlrfnum = portfolio$smb_hml_rf - portfolio$RF
+# 
+# ann_mktnum = prod(1+portfolio$mktnum)^(12/267)-1
+# ann_smbnum = prod(1+portfolio$smbnum)^(12/267)-1
+# ann_hmlnum = prod(1+portfolio$hmlnum)^(12/267)-1
+# ann_smbrfnum = prod(1+portfolio$smbrfnum)^(12/267)-1
+# ann_hmlrfnum = prod(1+portfolio$hmlrfnum)^(12/267)-1
+# ann_smbhmlrfnum = prod(1+portfolio$smbhmlrfnum)^(12/267)-1
+# 
+# mkt_sharpe = ann_mktnum/mkt_ann_vol
+# smb_sharpe = ann_smbnum/smb_ann_vol
+# hml_sharpe = ann_hmlnum/hml_ann_vol
+# smbrf_sharpe = ann_smbrfnum/smbrf_ann_vol
+# hmlrf_sharpe = ann_hmlrfnum/hmlrf_ann_vol
+# smbhmlrf_sharpe = ann_smbhmlrfnum/smbhmlrf_ann_vol
+# 
+# values = c(mkt_sharpe, smb_sharpe, hml_sharpe, smbrf_sharpe, hmlrf_sharpe, smbhmlrf_sharpe)
+# names = c("mkt_sharpe", "smb_sharpe", "hml_sharpe", "smbrf_sharpe", "hmlrf_sharpe", "smbhmlrf_sharpe")
+# 
+# portfolio$cumulative_mkt = cumprod(1 + portfolio$hmlrfnum)-1
+# 
+# ggplot(portfolio, aes(x=Date, y=cumulative_mkt)) +
+#   geom_line() +
+#   labs(title="HML over Time", x="Date", y="HML") +
+#   theme_minimal()
                    
